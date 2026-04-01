@@ -1,0 +1,85 @@
+// Ship systemd journal logs to Loki
+loki.source.journal "system" {
+  forward_to    = [loki.process.parse_level.receiver]
+  relabel_rules = loki.relabel.journal.rules
+  labels        = {
+    job   = "systemd-journal",
+    group = "permanent",
+  }
+}
+
+loki.process "parse_level" {
+  forward_to = [loki.write.remote.receiver]
+
+  // Extract inline level= from log line content
+  stage.regex {
+    expression = `level=(?P<level>\w+)`
+  }
+
+  // Normalize to lowercase and map aliases; fall back to "unknown" if absent
+  stage.template {
+    source   = "level"
+    template = `{{ $l := ToLower .Value }}{{ if eq $l "warning" }}warn{{ else if eq $l "err" }}error{{ else if eq $l "critical" }}fatal{{ else if eq $l "" }}unknown{{ else }}{{ $l }}{{ end }}`
+  }
+
+  // Extract audit log result field (no-op for non-audit lines)
+  stage.regex {
+    expression = `^AUDIT\d+\b.*\bres=(?P<audit_res>\w+)`
+  }
+
+  // For audit lines: derive level from res (overrides the "unknown" fallback above)
+  stage.template {
+    source   = "level"
+    template = `{{ if .audit_res }}{{ if eq .audit_res "failed" }}warn{{ else }}info{{ end }}{{ else }}{{ .Value }}{{ end }}`
+  }
+
+  stage.labels {
+    values = {
+      level     = "level",
+      audit_res = "audit_res",
+    }
+  }
+}
+
+loki.relabel "journal" {
+  forward_to = []
+
+  rule {
+    source_labels = ["__journal__systemd_unit"]
+    target_label  = "unit"
+  }
+  // Override with the actual user unit name when available
+  // (replaces "user@1007.service" with e.g. "mycontainer.service")
+  rule {
+    source_labels = ["__journal__systemd_user_unit"]
+    regex         = "(.+)"
+    target_label  = "unit"
+  }
+  rule {
+    source_labels = ["__journal__hostname"]
+    target_label  = "host"
+  }
+  // Map journal priority keywords to normalized log level names
+  rule {
+    source_labels = ["__journal_priority_keyword"]
+    target_label  = "level"
+  }
+  rule {
+    source_labels = ["__journal_priority_keyword"]
+    regex         = "notice"
+    replacement   = "info"
+    target_label  = "level"
+  }
+  rule {
+    source_labels = ["__journal_priority_keyword"]
+    regex         = "warning"
+    replacement   = "warn"
+    target_label  = "level"
+  }
+  rule {
+    source_labels = ["__journal_priority_keyword"]
+    regex         = "err"
+    replacement   = "error"
+    target_label  = "level"
+  }
+}

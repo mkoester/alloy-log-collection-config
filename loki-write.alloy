@@ -1,0 +1,5 @@
+loki.write "remote" {
+  endpoint {
+    url = "https://loki.domain.tld/loki/api/v1/push"
+  }
+}
