@@ -1,0 +1,117 @@
+// Sample config for Alloy.
+//
+// For a full configuration reference, see https://grafana.com/docs/alloy
+logging {
+  level = "warn"
+}
+
+prometheus.exporter.unix "default" {
+  include_exporter_metrics = true
+  disable_collectors       = ["mdadm"]
+}
+
+prometheus.scrape "default" {
+  targets = array.concat(
+    prometheus.exporter.unix.default.targets,
+    [{
+      // Self-collect metrics
+      job         = "alloy",
+      __address__ = "127.0.0.1:12345",
+    }],
+  )
+
+  forward_to = [
+  // TODO: components to forward metrics to (like prometheus.remote_write or
+  // prometheus.relabel).
+  ]
+}
+
+// END OF Sample config for Alloy.
+
+// Custom entries
+
+// Ship systemd journal logs to Loki
+loki.source.journal "system" {
+  forward_to    = [loki.process.parse_level.receiver]
+  relabel_rules = loki.relabel.journal.rules
+  labels        = {
+    job = "systemd-journal",
+    group = "permanent",
+  }
+}
+
+loki.process "parse_level" {
+  forward_to = [loki.write.local.receiver]
+
+  stage.regex {
+    expression = `level=(?P<level>\w+)`
+  }
+
+  // Normalize to lowercase and map aliases
+  stage.template {
+    source   = "level"
+    template = `{{ $l := ToLower .Value }}{{ if eq $l "warning" }}warn{{ else if eq $l "err" }}error{{ else if eq $l "critical" }}fatal{{ else }}{{ $l }}{{ end }}`
+  }
+
+  stage.labels {
+    values = {
+      level = "level",
+    }
+  }
+}
+
+loki.relabel "journal" {
+  forward_to = []
+
+  // Default level; overridden below if journal priority is present
+  rule {
+    replacement  = "info"
+    target_label = "level"
+  }
+
+  rule {
+    source_labels = ["__journal__systemd_unit"]
+    target_label  = "unit"
+  }
+  // Override with the actual user unit name when available
+  // (replaces "user@1007.service" with e.g. "mycontainer.service")
+  rule {
+    source_labels = ["__journal__systemd_user_unit"]
+    regex         = "(.+)"
+    target_label  = "unit"
+  }
+  rule {
+    source_labels = ["__journal__hostname"]
+    target_label  = "host"
+  }
+  rule {
+    source_labels = ["__journal_priority_keyword"]
+    target_label  = "level"
+  }
+  // Normalize syslog priority keywords to common log level names
+  rule {
+    source_labels = ["__journal_priority_keyword"]
+    regex         = "notice"
+    replacement   = "info"
+    target_label  = "level"
+  }
+  rule {
+    source_labels = ["__journal_priority_keyword"]
+    regex         = "warning"
+    replacement   = "warn"
+    target_label  = "level"
+  }
+  rule {
+    source_labels = ["__journal_priority_keyword"]
+    regex         = "err"
+    replacement   = "error"
+    target_label  = "level"
+  }
+
+}
+
+loki.write "local" {
+  endpoint {
+    url = "https://loki.domain.tld/loki/api/v1/push"
+  }
+}
