@@ -64,6 +64,15 @@ Linux kernel audit records (`AUDIT<TYPE> … res=…`) are recognized automatica
 - `res=success` → `level=info`
 - The `audit_res` label is set for filtering in Loki (e.g. `{audit_res="failed"}`)
 
+## Grafana dashboards
+
+Pre-built dashboards are in `dashboards/`. Import them via Grafana → Dashboards → Import → Upload JSON file.
+
+| File | Description |
+|------|-------------|
+| `dashboards/podman-healthchecks.json` | Health check logs filtered by level; defaults to warn/error/fatal/unknown |
+| `dashboards/system-journal.json` | System journal logs for a selectable host; shows warn and above, with SSH brute-force/scanner noise filtered out |
+
 ## Configuration
 
 Update `loki-write.alloy` with your Loki push URL before deploying.

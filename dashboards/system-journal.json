@@ -1,0 +1,66 @@
+{
+  "__inputs": [],
+  "__requires": [
+    { "type": "grafana", "id": "grafana", "name": "Grafana", "version": "10.0.0" },
+    { "type": "datasource", "id": "loki", "name": "Loki", "version": "1.0.0" },
+    { "type": "panel", "id": "logs", "name": "Logs", "version": "" }
+  ],
+  "title": "System Journal",
+  "uid": "system-journal",
+  "tags": ["loki", "journal"],
+  "schemaVersion": 39,
+  "version": 1,
+  "refresh": "30s",
+  "time": { "from": "now-1h", "to": "now" },
+  "timepicker": {},
+  "fiscalYearStartMonth": 0,
+  "graphTooltip": 0,
+  "links": [],
+  "panels": [
+    {
+      "id": 1,
+      "type": "logs",
+      "title": "Journal — warn / error and above",
+      "gridPos": { "h": 24, "w": 24, "x": 0, "y": 0 },
+      "datasource": { "type": "loki", "uid": "loki" },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": { "type": "loki", "uid": "loki" },
+          "expr": "{job=\"systemd-journal\", host=\"$host\", level!=\"info\"}\n  # exclude kernel audit noise: failed SSH login attempts (op=login, op=PAM:*, ...)\n  !~ `sshd-session.*res=failed`\n  # exclude SSH brute-force noise\n  !~ `maximum authentication attempts exceeded`\n  # exclude SSH scanner noise: malformed handshake packets\n  !~ `kex_protocol_error:.*\\[preauth\\]`\n  # exclude SSH scanner noise: connection reset before handshake\n  !~ `kex_exchange_identification`",
+          "queryType": "range"
+        }
+      ],
+      "options": {
+        "dedupStrategy": "none",
+        "enableLogDetails": true,
+        "prettifyLogMessage": false,
+        "showCommonLabels": false,
+        "showLabels": false,
+        "showTime": true,
+        "sortOrder": "Descending",
+        "wrapLogMessage": false
+      }
+    }
+  ],
+  "templating": {
+    "list": [
+      {
+        "name": "host",
+        "label": "Host",
+        "type": "query",
+        "datasource": { "type": "loki", "uid": "loki" },
+        "query": "label_values({job=\"systemd-journal\"}, host)",
+        "refresh": 1,
+        "sort": 1,
+        "multi": false,
+        "includeAll": false,
+        "hide": 0,
+        "current": {}
+      }
+    ]
+  },
+  "annotations": {
+    "list": []
+  }
+}

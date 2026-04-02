@@ -1,0 +1,124 @@
+{
+  "__inputs": [
+    {
+      "name": "DS_LOKI",
+      "label": "Loki",
+      "type": "datasource",
+      "pluginId": "loki",
+      "pluginName": "Loki"
+    }
+  ],
+  "__requires": [
+    { "type": "datasource", "id": "loki", "name": "Loki", "version": "1.0.0" },
+    { "type": "grafana", "id": "grafana", "name": "Grafana", "version": "10.0.0" },
+    { "type": "panel", "id": "logs", "name": "Logs", "version": "" },
+    { "type": "panel", "id": "barchart", "name": "Bar chart", "version": "" }
+  ],
+  "title": "Podman Health Checks",
+  "uid": "podman-healthchecks",
+  "schemaVersion": 39,
+  "version": 1,
+  "refresh": "30s",
+  "time": { "from": "now-6h", "to": "now" },
+  "timepicker": {},
+  "templating": {
+    "list": [
+      {
+        "name": "datasource",
+        "type": "datasource",
+        "pluginId": "loki",
+        "label": "Loki",
+        "hide": 0,
+        "refresh": 1
+      },
+      {
+        "name": "host",
+        "type": "query",
+        "label": "Host",
+        "datasource": { "type": "loki", "uid": "${datasource}" },
+        "definition": "label_values({job=\"systemd-journal\", unit=~\"podman-healthcheck-.+\"}, host)",
+        "query": "label_values({job=\"systemd-journal\", unit=~\"podman-healthcheck-.+\"}, host)",
+        "refresh": 2,
+        "multi": true,
+        "includeAll": true,
+        "allValue": ".+",
+        "current": { "selected": true, "text": "All", "value": "$__all" },
+        "hide": 0,
+        "sort": 1
+      },
+      {
+        "name": "levels",
+        "type": "custom",
+        "label": "Log levels",
+        "multi": true,
+        "includeAll": false,
+        "hide": 0,
+        "current": {
+          "selected": true,
+          "text": ["warn", "error", "fatal", "unknown"],
+          "value": ["warn", "error", "fatal", "unknown"]
+        },
+        "options": [
+          { "selected": true,  "text": "warn",    "value": "warn"    },
+          { "selected": true,  "text": "error",   "value": "error"   },
+          { "selected": true,  "text": "fatal",   "value": "fatal"   },
+          { "selected": true,  "text": "unknown", "value": "unknown" },
+          { "selected": false, "text": "info",    "value": "info"    }
+        ]
+      }
+    ]
+  },
+  "panels": [
+    {
+      "id": 1,
+      "title": "Events over time",
+      "type": "barchart",
+      "gridPos": { "h": 8, "w": 24, "x": 0, "y": 0 },
+      "datasource": { "type": "loki", "uid": "${datasource}" },
+      "options": {
+        "xField": "Time",
+        "stacking": "normal",
+        "legend": { "displayMode": "list", "placement": "bottom" }
+      },
+      "fieldConfig": {
+        "defaults": { "custom": { "lineWidth": 0, "fillOpacity": 80 } },
+        "overrides": [
+          { "matcher": { "id": "byName", "options": "warn"    }, "properties": [{ "id": "color", "value": { "mode": "fixed", "fixedColor": "orange" } }] },
+          { "matcher": { "id": "byName", "options": "error"   }, "properties": [{ "id": "color", "value": { "mode": "fixed", "fixedColor": "red"    } }] },
+          { "matcher": { "id": "byName", "options": "fatal"   }, "properties": [{ "id": "color", "value": { "mode": "fixed", "fixedColor": "purple" } }] },
+          { "matcher": { "id": "byName", "options": "unknown" }, "properties": [{ "id": "color", "value": { "mode": "fixed", "fixedColor": "gray"   } }] },
+          { "matcher": { "id": "byName", "options": "info"    }, "properties": [{ "id": "color", "value": { "mode": "fixed", "fixedColor": "green"  } }] }
+        ]
+      },
+      "targets": [
+        {
+          "expr": "sum by (level) (count_over_time({job=\"systemd-journal\", host=~\"$host\", unit=~\"podman-healthcheck-.+\", level=~\"$levels\"}[$__auto]))",
+          "legendFormat": "{{level}}",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "id": 2,
+      "title": "Logs",
+      "type": "logs",
+      "gridPos": { "h": 16, "w": 24, "x": 0, "y": 8 },
+      "datasource": { "type": "loki", "uid": "${datasource}" },
+      "options": {
+        "dedupStrategy": "none",
+        "showLabels": false,
+        "showCommonLabels": true,
+        "wrapLogMessage": true,
+        "prettifyLogMessage": false,
+        "enableLogDetails": true,
+        "sortOrder": "Descending"
+      },
+      "targets": [
+        {
+          "expr": "{job=\"systemd-journal\", host=~\"$host\", unit=~\"podman-healthcheck-.+\", level=~\"$levels\"}",
+          "refId": "A"
+        }
+      ]
+    }
+  ]
+}
