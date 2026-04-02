@@ -17,19 +17,26 @@ sudo dnf install alloy
 
 ### First-time setup
 
+Set these variables before running the commands below:
+
+```sh
+REPO_URL="https://git.example.com/youruser/alloy-log-collection-config.git"
+LOKI_HOST="loki.example.com"
+```
+
 Clone the repository as the `alloy` user and symlink the config files into `/etc/alloy/`:
 
 ```sh
-sudo -u alloy git clone <repo-url> /var/lib/alloy/config
+sudo -u alloy git clone "$REPO_URL" /var/lib/alloy/config
 sudo mkdir -p /etc/alloy
-for f in /var/lib/alloy/config/*.alloy; do sudo ln -s "$f" /etc/alloy/; done
+sudo bash -c 'for f in /var/lib/alloy/config/*.alloy; do ln -s "$f" /etc/alloy/; done'
 ```
 
 The RPM package configures Alloy via `/etc/sysconfig/alloy`. Set the Loki push URL and point `CONFIG_FILE` at the directory:
 
 ```sh
 sudo sed -i 's|CONFIG_FILE=.*|CONFIG_FILE="/etc/alloy/"|' /etc/sysconfig/alloy
-echo 'LOKI_URL="https://loki.example.com/loki/api/v1/push"' | sudo tee -a /etc/sysconfig/alloy
+echo "LOKI_URL=\"https://${LOKI_HOST}/loki/api/v1/push\"" | sudo tee -a /etc/sysconfig/alloy
 ```
 
 Alloy loads all `*.alloy` files in the directory and merges them. Components can reference each other across files.
