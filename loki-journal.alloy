@@ -33,8 +33,12 @@ loki.process "parse_level" {
   }
 
   // Extract audit log result field (no-op for non-audit lines)
+  // Matches AUDIT\d+-prefixed lines and other kernel audit record types (e.g. MAC_POLICY_LOAD)
   stage.regex {
     expression = `^AUDIT\d+\b.*\bres=(?P<audit_res>\w+)`
+  }
+  stage.regex {
+    expression = `\bauid=\d+\b.*\bres=(?P<audit_res>\w+)`
   }
 
   // For audit lines: derive level from res (overrides the "unknown" fallback above)
@@ -120,6 +124,119 @@ loki.process "parse_level" {
     stage.template {
       source   = "level"
       template = "warn"
+    }
+
+    stage.labels {
+      values = {
+        level = "level",
+      }
+    }
+  }
+
+  // Kernel audit records: ANOM_PROMISCUOUS fires when a veth interface leaves promiscuous mode —
+  // normal container networking (Podman/netavark brings veth interfaces up in promisc mode)
+  stage.match {
+    selector = `{job="systemd-journal"} |~ "^ANOM_PROMISCUOUS "`
+
+    stage.template {
+      source   = "level"
+      template = "info"
+    }
+
+    stage.labels {
+      values = {
+        level = "level",
+      }
+    }
+  }
+
+  // Kernel audit records: NETFILTER_CFG is normal firewall/netavark rule management
+  stage.match {
+    selector = `{job="systemd-journal"} |~ "^NETFILTER_CFG "`
+
+    stage.template {
+      source   = "level"
+      template = "info"
+    }
+
+    stage.labels {
+      values = {
+        level = "level",
+      }
+    }
+  }
+
+  // Kernel audit records: PROCTITLE is pure metadata accompanying other audit records
+  stage.match {
+    selector = `{job="systemd-journal"} |~ "^PROCTITLE "`
+
+    stage.template {
+      source   = "level"
+      template = "info"
+    }
+
+    stage.labels {
+      values = {
+        level = "level",
+      }
+    }
+  }
+
+  // Kernel audit records: SYSCALL — map success=yes to info, success=no to warn
+  stage.match {
+    selector = `{job="systemd-journal"} |~ "^SYSCALL .*success=yes"`
+
+    stage.template {
+      source   = "level"
+      template = "info"
+    }
+
+    stage.labels {
+      values = {
+        level = "level",
+      }
+    }
+  }
+
+  stage.match {
+    selector = `{job="systemd-journal"} |~ "^SYSCALL .*success=no"`
+
+    stage.template {
+      source   = "level"
+      template = "warn"
+    }
+
+    stage.labels {
+      values = {
+        level = "level",
+      }
+    }
+  }
+
+  // GitLab Ruby warnings (e.g. "already initialized constant") arrive on stderr and get
+  // classified as error by the container logger — downgrade to warn
+  stage.match {
+    selector = `{job="systemd-journal"} |~ ": warning: "`
+
+    stage.template {
+      source   = "level"
+      template = "warn"
+    }
+
+    stage.labels {
+      values = {
+        level = "level",
+      }
+    }
+  }
+
+  // GitLab internal log rotation: tail notices when runit/svlogd rotates a "current" log file
+  stage.match {
+    selector = `{job="systemd-journal"} |~ "has been replaced; following new file|file truncated"`
+
+    stage.template {
+      source   = "level"
+      template = "info"
     }
 
     stage.labels {
