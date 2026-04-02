@@ -15,16 +15,21 @@ sudo dnf install alloy
 
 ## Deployment
 
-Copy all `*.alloy` files to `/etc/alloy/`:
+### First-time setup
+
+Clone the repository as the `alloy` user and symlink the config files into `/etc/alloy/`:
 
 ```sh
-sudo cp *.alloy /etc/alloy/
+sudo -u alloy git clone <repo-url> /var/lib/alloy/config
+sudo mkdir -p /etc/alloy
+for f in /var/lib/alloy/config/*.alloy; do sudo ln -s "$f" /etc/alloy/; done
 ```
 
-The RPM package configures Alloy via `/etc/sysconfig/alloy`. Change `CONFIG_FILE` to point at the directory instead of a single file:
+The RPM package configures Alloy via `/etc/sysconfig/alloy`. Set the Loki push URL and point `CONFIG_FILE` at the directory:
 
 ```sh
 sudo sed -i 's|CONFIG_FILE=.*|CONFIG_FILE="/etc/alloy/"|' /etc/sysconfig/alloy
+echo 'LOKI_URL="https://loki.example.com/loki/api/v1/push"' | sudo tee -a /etc/sysconfig/alloy
 ```
 
 Alloy loads all `*.alloy` files in the directory and merges them. Components can reference each other across files.
@@ -35,9 +40,30 @@ Enable and start (first time):
 sudo systemctl enable --now alloy
 ```
 
-Reload after config changes:
+### UID map
+
+`loki-journal.alloy` contains a generated block that maps numeric owner UIDs to
+usernames (for the `owner` label in Loki). Run the script to populate it after
+the initial clone, then again whenever service users are added, removed, or
+renamed:
 
 ```sh
+sudo -u alloy /var/lib/alloy/config/scripts/generate-uid-map.sh
+sudo systemctl reload alloy
+```
+
+The script edits `loki-journal.alloy` in the repo clone directly, so the file
+will show as locally modified in git.
+
+### Updating
+
+Because the UID map leaves a local modification in the repo, stash it before
+pulling, then regenerate instead of restoring the stash:
+
+```sh
+sudo -u alloy git -C /var/lib/alloy/config stash
+sudo -u alloy git -C /var/lib/alloy/config pull
+sudo -u alloy /var/lib/alloy/config/scripts/generate-uid-map.sh
 sudo systemctl reload alloy
 ```
 
@@ -47,7 +73,7 @@ sudo systemctl reload alloy
 |------|---------|
 | `config.alloy` | Node metrics: `node_exporter` via `prometheus.exporter.unix` + self-scrape |
 | `loki-journal.alloy` | Reads the systemd journal, relabels entries, parses and normalizes log levels |
-| `loki-write.alloy` | Loki push endpoint — update the URL here |
+| `loki-write.alloy` | Loki push endpoint — URL set via `LOKI_URL` env var in `/etc/sysconfig/alloy` |
 
 ## Log level normalization
 
@@ -73,6 +99,3 @@ Pre-built dashboards are in `dashboards/`. Import them via Grafana → Dashboard
 | `dashboards/podman-healthchecks.json` | Health check logs filtered by level; defaults to warn/error/fatal/unknown |
 | `dashboards/system-journal.json` | System journal logs for a selectable host; shows warn and above, with SSH brute-force/scanner noise filtered out |
 
-## Configuration
-
-Update `loki-write.alloy` with your Loki push URL before deploying.
