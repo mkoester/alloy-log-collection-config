@@ -11,15 +11,25 @@ loki.source.journal "system" {
 loki.process "parse_level" {
   forward_to = [loki.write.remote.receiver]
 
-  // Extract inline level= from log line content
+  // Extract inline level from log line content into level_raw.
+  // Handles both key=value style (level=info) and bracket style ([INFO]).
+  // Using a separate key so we can tell whether the regex matched at all.
   stage.regex {
-    expression = `level=(?P<level>\w+)`
+    expression = `level=(?P<level_raw>\w+)`
   }
 
-  // Normalize to lowercase and map aliases; fall back to "unknown" if absent
+  // Also handle bracket-style levels ([INFO], [ERROR], etc.) — only match known
+  // level names to avoid capturing unrelated bracketed words like [preauth]
+  stage.regex {
+    expression = `(?i)\[(?P<level_raw>debug|info|warn|warning|error|err|critical|fatal|notice|alert|emerg)\]`
+  }
+
+  // If level= was found in the log line: normalize and override the journal-derived level.
+  // If not: keep whatever the relabeler set from the journal priority keyword.
+  // Only fall back to "unknown" if neither source provided a level.
   stage.template {
     source   = "level"
-    template = `{{ $l := ToLower .Value }}{{ if eq $l "warning" }}warn{{ else if eq $l "err" }}error{{ else if eq $l "critical" }}fatal{{ else if eq $l "" }}unknown{{ else }}{{ $l }}{{ end }}`
+    template = `{{ if .level_raw }}{{ $l := ToLower .level_raw }}{{ if eq $l "warning" }}warn{{ else if eq $l "err" }}error{{ else if eq $l "critical" }}fatal{{ else }}{{ $l }}{{ end }}{{ else if .Value }}{{ .Value }}{{ else }}unknown{{ end }}`
   }
 
   // Extract audit log result field (no-op for non-audit lines)
@@ -37,6 +47,85 @@ loki.process "parse_level" {
     values = {
       level     = "level",
       audit_res = "audit_res",
+    }
+  }
+
+  // BPF prog LOAD/UNLOAD audit lines are normal kernel activity — mark as info.
+  stage.match {
+    selector = `{job="systemd-journal"} |~ "^BPF prog-id=\\d+ op=(LOAD|UNLOAD)"`
+
+    stage.template {
+      source   = "level"
+      template = "info"
+    }
+
+    stage.labels {
+      values = {
+        level = "level",
+      }
+    }
+  }
+
+  // SERVICE_START/SERVICE_STOP audit lines: derive level from res= and extract unit name.
+  // These lines don't start with AUDIT\d+ so the generic audit_res stage above doesn't fire.
+  stage.match {
+    selector = `{job="systemd-journal"} |~ "SERVICE_ST(ART|OP)"`
+
+    stage.regex {
+      expression = `\bunit=(?P<audit_unit>[\w][\w.-]*)`
+    }
+
+    stage.regex {
+      expression = `\bres=(?P<service_res>\w+)`
+    }
+
+    stage.template {
+      source   = "level"
+      template = `{{ if eq .service_res "success" }}info{{ else }}warn{{ end }}`
+    }
+
+    stage.template {
+      source   = "unit"
+      template = `{{ if .audit_unit }}{{ .audit_unit }}{{ else }}{{ .Value }}{{ end }}`
+    }
+
+    stage.labels {
+      values = {
+        level = "level",
+        unit  = "unit",
+      }
+    }
+  }
+
+  // SSH scanner noise: connection reset before handshake completes — not a real error
+  stage.match {
+    selector = `{job="systemd-journal"} |= "kex_exchange_identification"`
+
+    stage.template {
+      source   = "level"
+      template = "warn"
+    }
+
+    stage.labels {
+      values = {
+        level = "level",
+      }
+    }
+  }
+
+  // SSH "maximum authentication attempts exceeded" is brute-force noise, not a real error
+  stage.match {
+    selector = `{job="systemd-journal"} |= "maximum authentication attempts exceeded"`
+
+    stage.template {
+      source   = "level"
+      template = "warn"
+    }
+
+    stage.labels {
+      values = {
+        level = "level",
+      }
     }
   }
 
