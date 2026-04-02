@@ -9,7 +9,7 @@
   "uid": "system-journal",
   "tags": ["loki", "journal"],
   "schemaVersion": 39,
-  "version": 1,
+  "version": 2,
   "refresh": "30s",
   "time": { "from": "now-1h", "to": "now" },
   "timepicker": {},
@@ -20,14 +20,14 @@
     {
       "id": 1,
       "type": "logs",
-      "title": "Journal — warn / error and above",
+      "title": "Journal logs",
       "gridPos": { "h": 24, "w": 24, "x": 0, "y": 0 },
       "datasource": { "type": "loki", "uid": "loki" },
       "targets": [
         {
           "refId": "A",
           "datasource": { "type": "loki", "uid": "loki" },
-          "expr": "{job=\"systemd-journal\", host=\"$host\", level!=\"info\"}\n  # exclude kernel audit noise: failed SSH login attempts (op=login, op=PAM:*, ...)\n  !~ `sshd-session.*res=failed`\n  # exclude SSH brute-force noise\n  !~ `maximum authentication attempts exceeded`\n  # exclude SSH scanner noise: malformed handshake packets\n  !~ `kex_protocol_error:.*\\[preauth\\]`\n  # exclude SSH scanner noise: connection reset before handshake\n  !~ `kex_exchange_identification`",
+          "expr": "{job=\"systemd-journal\", host=\"$host\", level=~\"$level\"}\n  # exclude kernel audit noise: failed SSH login attempts (op=login, op=PAM:*, ...)\n  !~ `sshd-session.*res=failed`\n  # exclude SSH brute-force noise\n  !~ `maximum authentication attempts exceeded`\n  # exclude SSH scanner noise: malformed handshake packets\n  !~ `kex_protocol_error:.*\\[preauth\\]`\n  # exclude SSH scanner noise: connection reset before handshake\n  !~ `kex_exchange_identification`",
           "queryType": "range"
         }
       ],
@@ -57,6 +57,29 @@
         "includeAll": false,
         "hide": 0,
         "current": {}
+      },
+      {
+        "name": "level",
+        "label": "Levels",
+        "type": "custom",
+        "query": "debug,info,warn,error,fatal,unknown",
+        "current": {
+          "selected": true,
+          "text": ["warn", "error", "fatal", "unknown"],
+          "value": ["warn", "error", "fatal", "unknown"]
+        },
+        "options": [
+          { "selected": false, "text": "debug",   "value": "debug"   },
+          { "selected": false, "text": "info",    "value": "info"    },
+          { "selected": true,  "text": "warn",    "value": "warn"    },
+          { "selected": true,  "text": "error",   "value": "error"   },
+          { "selected": true,  "text": "fatal",   "value": "fatal"   },
+          { "selected": true,  "text": "unknown", "value": "unknown" }
+        ],
+        "multi": true,
+        "includeAll": false,
+        "hide": 0,
+        "refresh": 0
       }
     ]
   },
