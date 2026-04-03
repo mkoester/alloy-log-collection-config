@@ -232,7 +232,7 @@ loki.process "parse_level" {
 
   // GitLab internal log rotation: tail notices when runit/svlogd rotates a "current" log file
   stage.match {
-    selector = `{job="systemd-journal"} |~ "has been replaced; following new file|file truncated"`
+    selector = `{job="systemd-journal"} |~ "has been replaced;\\s+following new file|file truncated"`
 
     stage.template {
       source   = "level"
