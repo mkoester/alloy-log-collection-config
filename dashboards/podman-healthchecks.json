@@ -1,13 +1,4 @@
 {
-  "__inputs": [
-    {
-      "name": "DS_LOKI",
-      "label": "Loki",
-      "type": "datasource",
-      "pluginId": "loki",
-      "pluginName": "Loki"
-    }
-  ],
   "__requires": [
     { "type": "datasource", "id": "loki", "name": "Loki", "version": "1.0.0" },
     { "type": "grafana", "id": "grafana", "name": "Grafana", "version": "10.0.0" },
@@ -24,18 +15,10 @@
   "templating": {
     "list": [
       {
-        "name": "datasource",
-        "type": "datasource",
-        "pluginId": "loki",
-        "label": "Loki",
-        "hide": 0,
-        "refresh": 1
-      },
-      {
         "name": "host",
         "type": "query",
         "label": "Host",
-        "datasource": { "type": "loki", "uid": "${datasource}" },
+        "datasource": { "type": "loki", "uid": "loki" },
         "definition": "label_values({job=\"systemd-journal\", unit=~\"podman-healthcheck-.+\"}, host)",
         "query": "label_values({job=\"systemd-journal\", unit=~\"podman-healthcheck-.+\"}, host)",
         "refresh": 2,
@@ -74,7 +57,7 @@
       "title": "Events over time",
       "type": "barchart",
       "gridPos": { "h": 8, "w": 24, "x": 0, "y": 0 },
-      "datasource": { "type": "loki", "uid": "${datasource}" },
+      "datasource": { "type": "loki", "uid": "loki" },
       "options": {
         "xField": "Time",
         "stacking": "normal",
@@ -103,7 +86,7 @@
       "title": "Logs",
       "type": "logs",
       "gridPos": { "h": 16, "w": 24, "x": 0, "y": 8 },
-      "datasource": { "type": "loki", "uid": "${datasource}" },
+      "datasource": { "type": "loki", "uid": "loki" },
       "options": {
         "dedupStrategy": "none",
         "showLabels": false,
