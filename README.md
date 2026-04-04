@@ -27,9 +27,9 @@ LOKI_HOST="loki.example.com"
 Clone the repository as the `alloy` user and symlink the config files into `/etc/alloy/`:
 
 ```sh
-sudo -u alloy git clone "$REPO_URL" /var/lib/alloy/config
+sudo -u alloy git clone "$REPO_URL" ~alloy/config
 sudo mkdir -p /etc/alloy
-sudo bash -c 'for f in /var/lib/alloy/config/*.alloy; do ln -s "$f" /etc/alloy/; done'
+sudo bash -c 'for f in ~alloy/config/*.alloy; do ln -s "$f" /etc/alloy/; done'
 ```
 
 The RPM package configures Alloy via `/etc/sysconfig/alloy`. Set the Loki push URL and point `CONFIG_FILE` at the directory:
@@ -55,7 +55,7 @@ the initial clone, then again whenever service users are added, removed, or
 renamed:
 
 ```sh
-sudo -u alloy /var/lib/alloy/config/scripts/generate-uid-map.sh
+sudo -u alloy ~alloy/config/scripts/generate-uid-map.sh
 sudo systemctl reload alloy
 ```
 
@@ -68,9 +68,9 @@ Because the UID map leaves a local modification in the repo, stash it before
 pulling, then regenerate instead of restoring the stash:
 
 ```sh
-sudo -u alloy git -C /var/lib/alloy/config stash
-sudo -u alloy git -C /var/lib/alloy/config pull
-sudo -u alloy /var/lib/alloy/config/scripts/generate-uid-map.sh
+sudo -u alloy git -C ~alloy/config stash && \
+sudo -u alloy git -C ~alloy/config pull && \
+sudo -u alloy ~alloy/config/scripts/generate-uid-map.sh && \
 sudo systemctl reload alloy
 ```
 

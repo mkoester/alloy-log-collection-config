@@ -34,4 +34,4 @@ perl -0777 -i -pe \
   "$ALLOY_FILE"
 
 echo "Updated $ALLOY_FILE"
-echo "Reload alloy: systemctl reload alloy"
+echo "Reload alloy: sudo systemctl reload alloy"
