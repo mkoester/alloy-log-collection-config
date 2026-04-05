@@ -1,5 +1,5 @@
 loki.write "remote" {
   endpoint {
-    url = env("LOKI_URL")
+    url = sys.env("LOKI_URL")
   }
 }
