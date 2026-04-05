@@ -134,6 +134,23 @@ loki.process "parse_level" {
     }
   }
 
+  // Git protocol version mismatch on SSH port: scanner/bot probing port 2222 with a
+  // git client that speaks a different protocol major version — not a real error
+  stage.match {
+    selector = `{job="systemd-journal"} |= "Protocol major versions differ"`
+
+    stage.template {
+      source   = "level"
+      template = "warn"
+    }
+
+    stage.labels {
+      values = {
+        level = "level",
+      }
+    }
+  }
+
   // Kernel audit records: ANOM_PROMISCUOUS fires when a veth interface leaves promiscuous mode —
   // normal container networking (Podman/netavark brings veth interfaces up in promisc mode)
   stage.match {
@@ -232,8 +249,13 @@ loki.process "parse_level" {
   }
 
   // GitLab internal log rotation: tail notices when runit/svlogd rotates a "current" log file
+  // Covers all four tail messages emitted during a rotation cycle:
+  //   "has been replaced; following new file"  (svlogd renames current → @timestamp)
+  //   "has appeared; following new file"        (new current file created)
+  //   "has become inaccessible: No such file"   (brief gap between rename and creation)
+  //   "file truncated"                           (in-place truncation rotation)
   stage.match {
-    selector = `{job="systemd-journal"} |~ "has been replaced;\\s+following new file|file truncated"`
+    selector = `{job="systemd-journal"} |~ "has been replaced;\\s+following new file|has appeared;\\s+following new file|has become inaccessible:.*No such file or directory|file truncated"`
 
     stage.template {
       source   = "level"
