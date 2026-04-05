@@ -24,8 +24,6 @@
         "refresh": 2,
         "multi": true,
         "includeAll": true,
-        "allValue": ".+",
-        "current": { "selected": true, "text": "All", "value": "$__all" },
         "hide": 0,
         "sort": 1
       },
