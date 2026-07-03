@@ -269,6 +269,26 @@ loki.process "parse_level" {
     }
   }
 
+  // Radicale: spurious warning when using http_x_remote_user auth without binding to loopback.
+  // Safe to downgrade: the container's PublishPort binds to 127.0.0.1 on the host, and a
+  // reverse proxy (Caddy) handles authentication in front of it — Radicale is never directly
+  // reachable from outside. Only applicable when running Radicale containerised behind a
+  // reverse proxy that sets X-Remote-User.
+  stage.match {
+    selector = `{job="systemd-journal"} |= "type=http_x_remote_user" |= "not only listen on loopback address"`
+
+    stage.template {
+      source   = "level"
+      template = "info"
+    }
+
+    stage.labels {
+      values = {
+        level = "level",
+      }
+    }
+  }
+
   // Container health check failures reported as bare "unhealthy" lines
   stage.match {
     selector = `{job="systemd-journal"} |= "unhealthy"`
