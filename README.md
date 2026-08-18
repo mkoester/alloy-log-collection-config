@@ -49,23 +49,18 @@ sudo systemctl enable --now alloy
 
 ### UID map
 
-`loki-journal.alloy` contains a generated block that maps numeric owner UIDs to
-usernames (for the `owner` label in Loki). Run the script to populate it after
-the initial clone, then again whenever service users are added, removed, or
-renamed:
+`loki-journal.alloy` contains a generated block that maps numeric owner UIDs to usernames (for the `owner` label in Loki). Run the script to populate it after the initial clone, then again whenever service users are added, removed, or renamed:
 
 ```sh
 sudo -u alloy ~alloy/config/scripts/generate-uid-map.sh
 sudo systemctl reload alloy
 ```
 
-The script edits `loki-journal.alloy` in the repo clone directly, so the file
-will show as locally modified in git.
+The script edits `loki-journal.alloy` in the repo clone directly, so the file will show as locally modified in git.
 
 ### Updating
 
-Because the UID map leaves a local modification in the repo, stash it before
-pulling, then regenerate instead of restoring the stash:
+Because the UID map leaves a local modification in the repo, stash it before pulling, then regenerate instead of restoring the stash:
 
 ```sh
 sudo -u alloy git -C ~alloy/config stash && \
