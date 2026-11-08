@@ -9,9 +9,11 @@ Add the Grafana RPM repository and install:
 ```sh
 wget -q -O gpg.key https://rpm.grafana.com/gpg.key
 sudo rpm --import gpg.key
-echo -e '[grafana]\nname=grafana\nbaseurl=https://rpm.grafana.com\nrepo_gpgcheck=1\nenabled=1\ngpgcheck=1\ngpgkey=https://rpm.grafana.com/gpg.key\nsslverify=1\nsslcacert=/etc/pki/tls/certs/ca-bundle.crt' | sudo tee /etc/yum.repos.d/grafana.repo
+echo -e '[grafana]\nname=grafana\nbaseurl=https://rpm.grafana.com\nrepo_gpgcheck=1\nenabled=1\ngpgcheck=1\ngpgkey=https://rpm.grafana.com/gpg.key\nsslverify=1' | sudo tee /etc/yum.repos.d/grafana.repo
 sudo dnf install alloy
 ```
+
+No `sslcacert=` line, although Grafana's own snippet has one: dnf uses the system trust store anyway, and the pinned `/etc/pki/tls/certs/ca-bundle.crt` broke on a Fedora 44 host (`Curl error (77): Problem with the SSL CA cert`), failing every `dnf install` on the box. Fix an existing host with `sudo sed -i '/^sslcacert=/d' /etc/yum.repos.d/grafana.repo`.
 
 ## Deployment
 
